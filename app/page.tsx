@@ -1,61 +1,72 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Lenis from 'lenis';
+import dynamic from 'next/dynamic';
 
-import LuxuryCursor from '@/components/luxury-cursor';
-import AmbientSoundscape from '@/components/ambient-soundscape';
 import Navigation from '@/components/navigation';
 import Hero from '@/components/hero';
-import SpatialJourney from '@/components/spatial-journey';
+import WelcomeSection from '@/components/welcome-section';
 import AboutStory from '@/components/about-story';
 import ServicesSection from '@/components/services-section';
-import TransformationSlider from '@/components/transformation-slider';
-import LuxuryGallery from '@/components/luxury-gallery';
-import ExperienceTimeline from '@/components/experience-timeline';
-import ProductShelf from '@/components/product-shelf';
-import MeetExperts from '@/components/meet-experts';
+import AuraConsultation from '@/components/aura-consultation';
+import AuraImageMarquee from '@/components/AuraImageMarquee';
 import ReviewsSection from '@/components/reviews-section';
+import WhatsAppBookingSection from '@/components/whatsapp-booking-section';
 import LocationContact from '@/components/location-contact';
 import Footer from '@/components/footer';
-
-import BookingModal from '@/components/booking-modal';
-import AIConsultantModal from '@/components/ai-consultant-modal';
+import MobileBookingBar from '@/components/mobile-booking-bar';
 import { ServiceItem } from '@/config/salon-config';
+
+// Code-split heavy interactive components to ensure sub-200ms initial paint
+const AuraAI = dynamic(() => import('@/components/aura-ai'), {
+  ssr: false,
+});
+
+const BookingModal = dynamic(() => import('@/components/booking-modal'), {
+  ssr: false,
+});
 
 export default function Home() {
   const [bookingOpen, setBookingOpen] = useState(false);
-  const [aiConsultantOpen, setAiConsultantOpen] = useState(false);
-
   const [bookingService, setBookingService] = useState<string | undefined>(undefined);
-  const [bookingStylist, setBookingStylist] = useState<string | undefined>(undefined);
 
-  // Initialize smooth momentum scroll via Lenis
+  // Initialize smooth momentum scroll via Lenis (respecting reduced-motion and code-split)
   useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: 'vertical',
-      gestureOrientation: 'vertical',
-      smoothWheel: true,
-      wheelMultiplier: 1,
-    });
-
-    function raf(time: number) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
     }
 
-    requestAnimationFrame(raf);
+    let lenisInstance: any = null;
+    let rafId: number | null = null;
+
+    import('lenis').then(({ default: Lenis }) => {
+      lenisInstance = new Lenis({
+        duration: 1.1,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        orientation: 'vertical',
+        gestureOrientation: 'vertical',
+        smoothWheel: true,
+        wheelMultiplier: 1,
+      });
+
+      function raf(time: number) {
+        if (!document.hidden && lenisInstance) {
+          lenisInstance.raf(time);
+        }
+        rafId = requestAnimationFrame(raf);
+      }
+
+      rafId = requestAnimationFrame(raf);
+    });
 
     return () => {
-      lenis.destroy();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (lenisInstance) lenisInstance.destroy();
     };
   }, []);
 
-  const handleOpenBooking = (serviceName?: string, stylistName?: string) => {
+  const handleOpenBooking = (serviceName?: string) => {
     if (serviceName) setBookingService(serviceName);
-    if (stylistName) setBookingStylist(stylistName);
     setBookingOpen(true);
   };
 
@@ -65,73 +76,55 @@ export default function Home() {
   };
 
   return (
-    <main className="relative bg-[#070606] text-[#F7F4EF] min-h-screen selection:bg-[#D4AF37] selection:text-black">
-      {/* Interactive Custom Cursor */}
-      <LuxuryCursor />
+    <main className="relative bg-[#F8F5F0] text-[#302C29] min-h-screen selection:bg-[#E9E0D5] selection:text-[#302C29]">
+      {/* 01. Header */}
+      <Navigation onOpenBooking={() => handleOpenBooking()} />
 
-      {/* Floating Ambient Soundscape Generator */}
-      <AmbientSoundscape />
+      {/* 02. Existing Hero Images, Unchanged */}
+      <Hero onOpenBooking={() => handleOpenBooking()} />
 
-      {/* Top Glass Navigation Bar */}
-      <Navigation
-        onOpenBooking={() => handleOpenBooking()}
-        onOpenAIConsultant={() => setAiConsultantOpen(true)}
-      />
+      {/* 03. Welcome to Aura */}
+      <WelcomeSection />
 
-      {/* Fullscreen Hero Experience */}
-      <Hero
-        onOpenBooking={() => handleOpenBooking()}
-        onOpenAIConsultant={() => setAiConsultantOpen(true)}
-      />
+      {/* 04. About the Salon */}
+      <AboutStory onOpenBooking={() => handleOpenBooking()} />
 
-      {/* Spatial Salon Room Walkthrough */}
-      <SpatialJourney />
-
-      {/* Editorial Philosophy Story */}
-      <AboutStory />
-
-      {/* Luxury Service Experience Catalog */}
+      {/* 05. Confirmed Salon Service Categories */}
       <ServicesSection onSelectService={handleSelectServiceForBooking} />
 
-      {/* Before / After Transformation Slider */}
-      <TransformationSlider />
+      {/* 06. AURA AI — Premium Interactive Beauty Consultation */}
+      <AuraConsultation onOpenBooking={(serviceName) => handleOpenBooking(serviceName)} />
 
-      {/* 8K Ultra-HD Lightbox Gallery */}
-      <LuxuryGallery />
+      {/* 07. World-Class Aura Image Marquee Gallery */}
+      <AuraImageMarquee onOpenBooking={(serviceName) => handleOpenBooking(serviceName)} />
 
-      {/* The 6-Step Ceremony Timeline */}
-      <ExperienceTimeline />
-
-      {/* Imported Product Glass Shelf */}
-      <ProductShelf />
-
-      {/* International Master Directors */}
-      <MeetExperts onOpenBooking={(s, styl) => handleOpenBooking(s, styl)} />
-
-      {/* Google Verified Reviews */}
+      {/* 08. Google Reviews */}
       <ReviewsSection />
 
-      {/* Location & VIP Inquiries */}
+      {/* 09. WhatsApp Appointment Section */}
+      <WhatsAppBookingSection />
+
+      {/* 10. Contact Information & Google Maps Location */}
       <LocationContact />
 
-      {/* Footer */}
-      <Footer />
+      {/* 11. Footer */}
+      <Footer onOpenBooking={() => handleOpenBooking()} />
 
-      {/* Hotel-Grade Booking System Modal */}
-      <BookingModal
-        key={`${bookingService || 'default'}-${bookingStylist || 'default'}-${bookingOpen}`}
-        isOpen={bookingOpen}
-        onClose={() => setBookingOpen(false)}
-        initialService={bookingService}
-        initialStylist={bookingStylist}
-      />
+      {/* Mobile Sticky Booking Bar */}
+      <MobileBookingBar onOpenBooking={() => handleOpenBooking()} />
 
-      {/* AI Hair & Beauty Style Preview & Diagnostic Suite */}
-      <AIConsultantModal
-        isOpen={aiConsultantOpen}
-        onClose={() => setAiConsultantOpen(false)}
-        onBookRecommendedService={(servName) => handleOpenBooking(servName)}
-      />
+      {/* Floating Aura AI Conversational Assistant (Dynamically Loaded) */}
+      <AuraAI />
+
+      {/* Booking System Modal (Dynamically loaded strictly on open) */}
+      {bookingOpen && (
+        <BookingModal
+          key={`${bookingService || 'default'}-${bookingOpen}`}
+          isOpen={bookingOpen}
+          onClose={() => setBookingOpen(false)}
+          initialService={bookingService}
+        />
+      )}
     </main>
   );
 }
